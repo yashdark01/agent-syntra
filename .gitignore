@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds & Outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+.syntra/secrets*
+.syntra/credentials*
+credentials.json
+*.pem
+*.key
+
+# Test & Coverage
+coverage/
+*.lcov
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary & Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+tmp/
+scratch/
