@@ -22,19 +22,40 @@ export function registerProvidersCommand(
         const providers = providerRegistry.list();
 
         for (const provider of providers) {
-          const hasKey = await credentialStore.has(provider.id);
-          const isFromEnv = await credentialStore.isFromEnv(provider.id);
-          const envVar = getEnvVarForProvider(provider.id);
+          let statusBadge: string;
+          let sourceInfo: string;
 
-          const statusBadge = hasKey
-            ? pc.green('✓ configured')
-            : pc.red('✗ missing credentials');
+          if (provider.id === 'ollama') {
+            let isRunning = false;
+            try {
+              isRunning = await provider.validateCredentials();
+            } catch {
+              isRunning = false;
+            }
+            statusBadge = isRunning
+              ? pc.green('✓ active')
+              : pc.yellow('⚠ offline');
+            sourceInfo = isRunning
+              ? pc.dim('(local daemon at http://127.0.0.1:11434)')
+              : pc.dim('(start with `ollama serve`)');
+          } else if (provider.id === 'mock') {
+            statusBadge = pc.green('✓ ready');
+            sourceInfo = pc.dim('(offline test provider)');
+          } else {
+            const hasKey = await credentialStore.has(provider.id);
+            const isFromEnv = await credentialStore.isFromEnv(provider.id);
+            const envVar = getEnvVarForProvider(provider.id);
 
-          const sourceInfo = hasKey
-            ? isFromEnv
-              ? pc.dim(`(via ${envVar})`)
-              : pc.dim('(stored in ~/.syntra/credentials.json)')
-            : pc.dim(`(set ${envVar} or run syntra init)`);
+            statusBadge = hasKey
+              ? pc.green('✓ configured')
+              : pc.red('✗ missing credentials');
+
+            sourceInfo = hasKey
+              ? isFromEnv
+                ? pc.dim(`(via ${envVar})`)
+                : pc.dim('(stored in ~/.syntra/credentials.json)')
+              : pc.dim(`(set ${envVar} or run syntra init)`);
+          }
 
           console.log(`  ${pc.bold(provider.displayName.padEnd(18))} [${provider.id}]`);
           console.log(`    Status:      ${statusBadge} ${sourceInfo}`);

@@ -1,6 +1,13 @@
 import { Command } from 'commander';
 import { ConfigManager, CompositeCredentialStore } from '@syntra/config';
-import { ProviderRegistry, OpenAIProvider, AnthropicProvider, GeminiProvider } from '@syntra/providers';
+import {
+  ProviderRegistry,
+  OpenAIProvider,
+  AnthropicProvider,
+  GeminiProvider,
+  GroqProvider,
+  OllamaProvider,
+} from '@syntra/providers';
 import { InputCancelledError, TerminalInput } from '../ui/terminal-input.js';
 import { TerminalRenderer } from '../ui/terminal-renderer.js';
 import { OnboardingWizard } from '../onboarding/onboarding-wizard.js';
@@ -27,6 +34,12 @@ export function registerInitCommand(
       if (!providerRegistry.has('gemini')) {
         providerRegistry.register(new GeminiProvider({ credentialStore }));
       }
+      if (!providerRegistry.has('groq')) {
+        providerRegistry.register(new GroqProvider({ credentialStore }));
+      }
+      if (!providerRegistry.has('ollama')) {
+        providerRegistry.register(new OllamaProvider());
+      }
 
       const wizard = new OnboardingWizard({
         configManager,
@@ -38,6 +51,8 @@ export function registerInitCommand(
 
       try {
         await wizard.run();
+        input.close();
+        process.exit(0);
       } catch (err: unknown) {
         if (
           err instanceof InputCancelledError ||
@@ -47,8 +62,8 @@ export function registerInitCommand(
         } else {
           renderer.renderError(err);
         }
-      } finally {
         input.close();
+        process.exit(1);
       }
     });
 }

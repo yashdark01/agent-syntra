@@ -1,6 +1,13 @@
 import { Command } from 'commander';
 import { ConfigManager, CompositeCredentialStore } from '@syntra/config';
-import { ProviderRegistry, OpenAIProvider, AnthropicProvider, GeminiProvider } from '@syntra/providers';
+import {
+  ProviderRegistry,
+  OpenAIProvider,
+  AnthropicProvider,
+  GeminiProvider,
+  OllamaProvider,
+  GroqProvider,
+} from '@syntra/providers';
 import { TerminalInput } from '../ui/terminal-input.js';
 import { TerminalRenderer } from '../ui/terminal-renderer.js';
 import { ChatSession } from '../chat/chat-session.js';
@@ -23,6 +30,12 @@ export async function runChatSession(
   }
   if (!providerRegistry.has('gemini')) {
     providerRegistry.register(new GeminiProvider({ credentialStore }));
+  }
+  if (!providerRegistry.has('groq')) {
+    providerRegistry.register(new GroqProvider({ credentialStore }));
+  }
+  if (!providerRegistry.has('ollama')) {
+    providerRegistry.register(new OllamaProvider());
   }
 
   const isConfigured = await configManager.isConfigured();
@@ -49,8 +62,12 @@ export async function runChatSession(
     config = { ...config, defaultModel: options.model };
   }
 
-  // Ensure active provider has credentials
-  const hasCreds = await credentialStore.has(config.defaultProvider);
+  // Ensure active provider has credentials (Ollama & Mock are local/no-key)
+  const isNoKeyProvider =
+    config.defaultProvider === 'ollama' || config.defaultProvider === 'mock';
+  const hasCreds =
+    isNoKeyProvider || (await credentialStore.has(config.defaultProvider));
+
   if (!hasCreds) {
     renderer.renderWarning(
       `No credentials found for provider '${config.defaultProvider}'. Launching onboarding...`
@@ -112,8 +129,10 @@ export function registerChatCommand(
           input,
           options
         );
+        process.exit(0);
       } catch (err: unknown) {
         renderer.renderError(err);
+        process.exit(1);
       }
     });
 }

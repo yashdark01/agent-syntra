@@ -6,6 +6,8 @@ import {
   OpenAIProvider,
   AnthropicProvider,
   GeminiProvider,
+  GroqProvider,
+  OllamaProvider,
   MockLLMProvider,
 } from '@syntra/providers';
 import { defaultLogger } from '@syntra/shared';
@@ -17,7 +19,6 @@ import { registerConfigCommand } from './commands/config.js';
 import { registerProvidersCommand } from './commands/providers.js';
 import { registerModelsCommand } from './commands/models.js';
 
-// Load environment variables silently from current working directory or ancestors
 dotenv.config();
 
 export async function main(argv: string[] = process.argv): Promise<void> {
@@ -37,13 +38,13 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   const renderer = new TerminalRenderer();
   const input = new TerminalInput();
 
-  // Register all core provider adapters with credential store integration
   providerRegistry.register(new OpenAIProvider({ credentialStore }));
   providerRegistry.register(new AnthropicProvider({ credentialStore }));
   providerRegistry.register(new GeminiProvider({ credentialStore }));
+  providerRegistry.register(new GroqProvider({ credentialStore }));
+  providerRegistry.register(new OllamaProvider());
   providerRegistry.register(new MockLLMProvider());
 
-  // Hook before execution to handle --debug
   program.hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts<{ debug?: boolean }>();
     if (opts.debug || process.env.SYNTRA_DEBUG === 'true' || process.env.SYNTRA_DEBUG === '1') {
@@ -53,15 +54,12 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     }
   });
 
-  // Register CLI subcommands
   registerInitCommand(program, configManager, credentialStore, providerRegistry, renderer, input);
   registerChatCommand(program, configManager, credentialStore, providerRegistry, renderer, input);
   registerConfigCommand(program, configManager, renderer);
   registerProvidersCommand(program, credentialStore, providerRegistry, renderer);
   registerModelsCommand(program, configManager, providerRegistry, renderer);
 
-  // Default action when running `syntra` without subcommands:
-  // Enters interactive chat session (or onboarding on first run)
   program.action(async () => {
     try {
       await runChatSession(
@@ -71,6 +69,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
         renderer,
         input
       );
+      process.exit(0);
     } catch (err: unknown) {
       renderer.renderError(err);
       process.exit(1);
@@ -80,11 +79,9 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   await program.parseAsync(argv);
 }
 
-// Execute when invoked directly as CLI binary
 if (process.argv[1]?.endsWith('syntra') || process.argv[1]?.endsWith('index.js')) {
   main().catch((err) => {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('Fatal CLI Error:', message);
+    console.error(err);
     process.exit(1);
   });
 }

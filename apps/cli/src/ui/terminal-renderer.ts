@@ -1,6 +1,17 @@
 import pc from 'picocolors';
 import { LLMError, TokenUsage } from '@syntra/core';
 import { flattenNestedErrorMessage, redactString } from '@syntra/shared';
+import {
+  renderBoxHeader,
+  renderBoxLine,
+  renderBoxDivider,
+  renderBoxFooter,
+  getTerminalWidth,
+} from './box-frame.js';
+import {
+  StreamingMarkdownFormatter,
+  formatFullMarkdown,
+} from './markdown-formatter.js';
 
 export interface BannerInfo {
   provider: string;
@@ -28,9 +39,13 @@ function formatError(error: unknown): string {
 
 export class TerminalRenderer {
   private debugMode: boolean;
+  private streamFormatter: StreamingMarkdownFormatter;
 
   constructor(debugMode = false) {
     this.debugMode = debugMode;
+    this.streamFormatter = new StreamingMarkdownFormatter((text) => {
+      process.stdout.write(text);
+    });
   }
 
   public setDebugMode(enabled: boolean): void {
@@ -38,15 +53,47 @@ export class TerminalRenderer {
   }
 
   public renderWelcomeBanner(info: BannerInfo): void {
+    const width = Math.min(getTerminalWidth(), 72);
+    const borderColor = pc.dim;
+
     console.log();
-    console.log(pc.bold(pc.cyan('  SYNTRA')));
-    console.log(pc.dim('  Autonomous Intelligence Runtime'));
-    console.log();
-    console.log(`  ${pc.dim('provider')}   ${pc.green(info.provider)}`);
-    console.log(`  ${pc.dim('model')}      ${pc.blue(info.model)}`);
-    console.log(`  ${pc.dim('workspace')}  ${pc.yellow(info.workspace)}`);
-    console.log();
-    console.log(pc.dim('  Type /help · Tab completes slash commands · Ctrl+C cancels'));
+    console.log(
+      renderBoxHeader('SYNTRA · v0.1.0', {
+        width,
+        badgeColor: pc.cyan,
+        borderColor,
+      })
+    );
+    console.log(
+      renderBoxLine(pc.dim('Autonomous Intelligence Runtime'), undefined, {
+        width,
+        borderColor,
+      })
+    );
+    console.log(renderBoxDivider({ width, borderColor }));
+    console.log(
+      renderBoxLine(
+        `${pc.dim('provider'.padEnd(12))} ${pc.green(info.provider)}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('model'.padEnd(12))} ${pc.blue(info.model)}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('workspace'.padEnd(12))} ${pc.yellow(info.workspace)}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(renderBoxFooter({ width, borderColor }));
+    console.log(`  ${pc.dim('Type /help · Tab completes slash commands · Ctrl+C cancels')}`);
     console.log();
   }
 
@@ -57,15 +104,22 @@ export class TerminalRenderer {
   }
 
   public renderDelta(delta: string): void {
-    process.stdout.write(delta);
+    this.streamFormatter.processDelta(delta);
+  }
+
+  public renderMarkdown(markdown: string): void {
+    const formatted = formatFullMarkdown(markdown);
+    process.stdout.write(formatted);
   }
 
   public renderCompletionEnd(): void {
-    console.log();
+    this.streamFormatter.flush();
+    this.streamFormatter.reset();
     console.log();
   }
 
   public renderCancellation(): void {
+    this.streamFormatter.reset();
     console.log();
     console.log(pc.yellow('✗ Generation cancelled.'));
     console.log();
@@ -78,9 +132,14 @@ export class TerminalRenderer {
 
     if (error instanceof LLMError) {
       if (error.statusCode === 429) {
-        console.log(pc.dim('\nTry again later or pick another provider with ') + pc.cyan('/provider'));
+        console.log(
+          pc.dim('\nTry again later or pick another provider with ') +
+            pc.cyan('/provider')
+        );
       } else if (error.statusCode === 401) {
-        console.log(pc.dim('\nConfigure your API key with ') + pc.cyan('syntra init'));
+        console.log(
+          pc.dim('\nConfigure your API key with ') + pc.cyan('syntra init')
+        );
       } else if (error.statusCode === 404) {
         console.log(pc.dim('\nPick a current model with ') + pc.cyan('/model'));
       }
@@ -94,34 +153,109 @@ export class TerminalRenderer {
   }
 
   public renderStatus(status: SessionStatusInfo): void {
+    const width = Math.min(getTerminalWidth(), 68);
+    const borderColor = pc.dim;
+
     console.log();
-    console.log(pc.bold(pc.cyan('Syntra Status')));
-    console.log();
-    console.log(`  ${pc.dim('provider')}   ${pc.green(status.provider)}`);
-    console.log(`  ${pc.dim('model')}      ${pc.blue(status.model)}`);
-    console.log(`  ${pc.dim('workspace')}  ${pc.yellow(status.workspace)}`);
-    console.log(`  ${pc.dim('messages')}   ${status.messageCount}`);
-    console.log();
-    console.log(pc.bold('  Tokens'));
-    console.log(`  Input   ${(status.usage.inputTokens ?? 0).toLocaleString()}`);
-    console.log(`  Output  ${(status.usage.outputTokens ?? 0).toLocaleString()}`);
-    console.log(`  Total   ${(status.usage.totalTokens ?? 0).toLocaleString()}`);
+    console.log(
+      renderBoxHeader('Syntra Status', {
+        width,
+        badgeColor: pc.cyan,
+        borderColor,
+      })
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('provider'.padEnd(12))} ${pc.green(status.provider)}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('model'.padEnd(12))} ${pc.blue(status.model)}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('workspace'.padEnd(12))} ${pc.yellow(status.workspace)}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('messages'.padEnd(12))} ${status.messageCount}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(renderBoxDivider({ width, borderColor }));
+    console.log(
+      renderBoxLine(pc.bold('Token Usage'), undefined, { width, borderColor })
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('Input'.padEnd(12))} ${(status.usage.inputTokens ?? 0).toLocaleString()}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('Output'.padEnd(12))} ${(status.usage.outputTokens ?? 0).toLocaleString()}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(
+      renderBoxLine(
+        `${pc.dim('Total'.padEnd(12))} ${(status.usage.totalTokens ?? 0).toLocaleString()}`,
+        undefined,
+        { width, borderColor }
+      )
+    );
+    console.log(renderBoxFooter({ width, borderColor }));
     console.log();
   }
 
   public renderHelp(): void {
+    const width = Math.min(getTerminalWidth(), 68);
+    const borderColor = pc.dim;
+
     console.log();
-    console.log(pc.bold(pc.cyan('Slash commands')));
-    console.log();
-    console.log(`  ${pc.bold('/help')}      Command reference`);
-    console.log(`  ${pc.bold('/clear')}     Clear conversation history`);
-    console.log(`  ${pc.bold('/provider')}  Switch provider`);
-    console.log(`  ${pc.bold('/model')}     Switch model`);
-    console.log(`  ${pc.bold('/config')}    Show configuration`);
-    console.log(`  ${pc.bold('/status')}    Session and token usage`);
-    console.log(`  ${pc.bold('/exit')}      Leave the session`);
-    console.log();
-    console.log(pc.dim('  Tip: type / then Tab to autocomplete. / by itself opens a picker.'));
+    console.log(
+      renderBoxHeader('Slash Commands', {
+        width,
+        badgeColor: pc.cyan,
+        borderColor,
+      })
+    );
+    const commands: [string, string][] = [
+      ['/help', 'Command reference'],
+      ['/clear', 'Clear conversation history'],
+      ['/provider', 'Switch active provider'],
+      ['/model', 'Switch active model'],
+      ['/config', 'Show current configuration'],
+      ['/status', 'Session details and token usage'],
+      ['/exit', 'Leave the session'],
+    ];
+
+    for (const [cmd, desc] of commands) {
+      console.log(
+        renderBoxLine(
+          `${pc.bold(pc.cyan(cmd.padEnd(12)))} ${pc.white(desc)}`,
+          undefined,
+          { width, borderColor }
+        )
+      );
+    }
+    console.log(renderBoxFooter({ width, borderColor }));
+    console.log(
+      pc.dim('  Tip: type / then Tab to autocomplete. / by itself opens a picker.')
+    );
     console.log();
   }
 

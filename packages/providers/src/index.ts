@@ -4,3 +4,5 @@ export * from './openai/openai-provider.js';
 export * from './anthropic/anthropic-provider.js';
 export * from './gemini/gemini-provider.js';
 export * from './gemini/gemini-models.js';
+export * from './ollama/ollama-provider.js';
+export * from './groq/groq-provider.js';

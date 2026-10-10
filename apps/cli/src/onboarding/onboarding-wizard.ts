@@ -1,6 +1,13 @@
 import pc from 'picocolors';
 import { ConfigManager, AppConfig, CredentialStore } from '@syntra/config';
-import { ProviderRegistry, OpenAIProvider, AnthropicProvider, GeminiProvider } from '@syntra/providers';
+import {
+  ProviderRegistry,
+  OpenAIProvider,
+  AnthropicProvider,
+  GeminiProvider,
+  GroqProvider,
+  OllamaProvider,
+} from '@syntra/providers';
 import { TerminalInput, InputCancelledError } from '../ui/terminal-input.js';
 import { TerminalRenderer } from '../ui/terminal-renderer.js';
 import { Spinner } from '../ui/spinner.js';
@@ -14,9 +21,11 @@ export interface OnboardingOptions {
 }
 
 const PROVIDER_CHOICES = [
+  { label: 'Ollama (Local)', value: 'ollama', description: 'Local LLMs (qwen2.5, llama3.3, mistral)' },
+  { label: 'Groq', value: 'groq', description: 'Ultra-fast Llama 3.3, DeepSeek R1' },
+  { label: 'Gemini', value: 'gemini', description: 'Gemini 2.5 Flash, Gemini 2.5 Pro' },
   { label: 'OpenAI', value: 'openai', description: 'GPT-4o, o1, o3-mini' },
   { label: 'Anthropic', value: 'anthropic', description: 'Claude 3.7 Sonnet, Claude 3.5' },
-  { label: 'Gemini', value: 'gemini', description: 'Gemini 3.8 Flash, Gemini 2.5 Pro' },
 ];
 
 export class OnboardingWizard {
@@ -48,7 +57,7 @@ export class OnboardingWizard {
       selectedProviderIds = await this.input.checkbox(
         'Which providers do you want to configure?',
         PROVIDER_CHOICES,
-        prechecked.some(Boolean) ? prechecked : [true, false, false]
+        prechecked.some(Boolean) ? prechecked : [true, false, false, false, false]
       );
     } catch (err) {
       if (err instanceof InputCancelledError) {
@@ -106,6 +115,12 @@ export class OnboardingWizard {
         provider = new OpenAIProvider({ credentialStore: this.credentialStore });
       } else if (providerId === 'anthropic') {
         provider = new AnthropicProvider({ credentialStore: this.credentialStore });
+      } else if (providerId === 'gemini') {
+        provider = new GeminiProvider({ credentialStore: this.credentialStore });
+      } else if (providerId === 'groq') {
+        provider = new GroqProvider({ credentialStore: this.credentialStore });
+      } else if (providerId === 'ollama') {
+        provider = new OllamaProvider();
       } else {
         provider = new GeminiProvider({ credentialStore: this.credentialStore });
       }
@@ -118,6 +133,30 @@ export class OnboardingWizard {
     const meta = PROVIDER_CHOICES.find((choice) => choice.value === providerId);
     console.log();
     console.log(pc.bold(meta?.label ?? providerId));
+
+    if (providerId === 'ollama') {
+      const provider = this.ensureProvider(providerId);
+      const spinner = new Spinner();
+      spinner.start('Checking Ollama daemon at http://127.0.0.1:11434...');
+
+      let isRunning = false;
+      try {
+        isRunning = await provider.validateCredentials();
+      } catch {
+        isRunning = false;
+      }
+      spinner.stop();
+
+      if (isRunning) {
+        this.renderer.renderSuccess('Ollama local daemon is active.');
+      } else {
+        this.renderer.renderWarning(
+          'Could not connect to Ollama at http://127.0.0.1:11434.\nMake sure Ollama is installed and run `ollama serve`.'
+        );
+      }
+      await this.credentialStore.set('ollama', 'local');
+      return;
+    }
 
     let apiKey = await this.credentialStore.get(providerId);
     let keyFromEnv = false;
