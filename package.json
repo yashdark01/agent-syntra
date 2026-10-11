@@ -1,0 +1,28 @@
+{
+  "name": "syntra-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Syntra is a local-first autonomous agent runtime and CLI platform designed to execute complex user goals using LLMs, tools, skills, context engineering, and eventually multi-agent orchestration.",
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm --filter @syntra/cli run dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "pnpm -r run typecheck",
+    "syntra": "node ./apps/cli/dist/index.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.9",
+    "eslint": "^9.21.0",
+    "prettier": "^3.5.3",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0",
+    "vitest": "^3.0.7"
+  }
+}
